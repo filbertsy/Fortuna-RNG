@@ -60,6 +60,7 @@ Do not commit real bot tokens or credentials to GitHub. The database is stored a
 ## Scope rules
 
 - Player accounts, coins, RNG collections, favorites, achievements, tools, and potion ownership are global by Discord user ID.
+- RNG collections hold up to 300 unique discoveries. Rolls still enter history when the collection is full, but new unique discoveries are not stored.
 - Shop stock and rare-announcement settings are per server.
 - Permanent tools are unique and at most two can be equipped.
 - Potion copies stack in storage. Up to five active potion stacks can be running.
