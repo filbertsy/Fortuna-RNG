@@ -103,12 +103,22 @@ module.exports = {
                         total_rolls = total_rolls + 1
                 `).run(userId);
 
-                db.prepare(`
-                    INSERT INTO rng_inventory (user_id, rng_id, quantity)
-                    VALUES (?, ?, 1)
-                    ON CONFLICT(user_id, rng_id) DO UPDATE SET
-                        quantity = quantity + 1
-                `).run(userId, result.id);
+                const alreadyOwned = db.prepare(
+                    "SELECT 1 FROM rng_inventory WHERE user_id = ? AND rng_id = ?"
+                ).get(userId, result.id);
+                const uniqueCount = db.prepare(
+                    "SELECT COUNT(*) AS count FROM rng_inventory WHERE user_id = ?"
+                ).get(userId).count;
+                const stored = Boolean(alreadyOwned) || uniqueCount < 300;
+
+                if (stored) {
+                    db.prepare(`
+                        INSERT INTO rng_inventory (user_id, rng_id, quantity)
+                        VALUES (?, ?, 1)
+                        ON CONFLICT(user_id, rng_id) DO UPDATE SET
+                            quantity = quantity + 1
+                    `).run(userId, result.id);
+                }
 
                 db.prepare(`
                     INSERT INTO roll_history
@@ -121,9 +131,11 @@ module.exports = {
                     result.odds.toString(),
                     timestamp
                 );
+
+                return stored;
             });
 
-            saveRoll();
+            const resultStored = saveRoll();
 
             const embed = new EmbedBuilder()
                 .setColor(result.color)
@@ -136,6 +148,13 @@ module.exports = {
                 )
                 .setFooter({ text: "Fortuna RNG • Does fortune favor you?" })
                 .setTimestamp(new Date(timestamp));
+
+            if (!resultStored) {
+                embed.addFields({
+                    name: "Collection full",
+                    value: "Your collection is at its 300 unique-RNG limit. This result was recorded in history but not added to your collection."
+                });
+            }
 
             await interaction.editReply({ embeds: [embed] });
 
