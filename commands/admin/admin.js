@@ -119,6 +119,11 @@ module.exports = {
             }
 
             ensurePlayer(target.id);
+            const owned = db.prepare("SELECT 1 FROM rng_inventory WHERE user_id = ? AND rng_id = ?").get(target.id, rngId);
+            const uniqueCount = db.prepare("SELECT COUNT(*) AS count FROM rng_inventory WHERE user_id = ?").get(target.id).count;
+            if (!owned && uniqueCount >= 300) {
+                return interaction.reply({ content: "That player's collection is full (300 unique RNGs).", flags: MessageFlags.Ephemeral });
+            }
             db.prepare(`
                 INSERT INTO rng_inventory (user_id, rng_id, quantity)
                 VALUES (?, ?, ?)
