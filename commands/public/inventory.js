@@ -54,7 +54,7 @@ module.exports = {
 
         const embed = baseEmbed(`${target.username}'s collection`, description)
             .addFields(
-                { name: "Unique RNGs", value: formatNumber(rows.length), inline: true },
+                { name: "Unique RNGs", value: `${formatNumber(rows.length)}/300`, inline: true },
                 { name: "Page", value: `${page}/${totalPages}`, inline: true }
             );
 
