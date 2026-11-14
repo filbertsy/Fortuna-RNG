@@ -38,6 +38,11 @@ function isOwner(userId) {
     return Boolean(process.env.OWNER_ID) && userId === process.env.OWNER_ID;
 }
 
+function isAdmin(userId) {
+    if (isOwner(userId)) return true;
+    return getDatabase().prepare("SELECT 1 FROM bot_admins WHERE user_id = ?").get(userId) !== undefined;
+}
+
 module.exports = {
     GOLD,
     DARK,
@@ -45,5 +50,6 @@ module.exports = {
     formatNumber,
     formatDuration,
     baseEmbed,
-    isOwner
+    isOwner,
+    isAdmin
 };
