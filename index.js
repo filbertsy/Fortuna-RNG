@@ -27,6 +27,10 @@ function validateEnvironment() {
     if (!/^\d{17,20}$/.test(process.env.CLIENT_ID.trim())) {
         throw new Error("CLIENT_ID must be a valid Discord application ID.");
     }
+
+    if (!/^\d{17,20}$/.test(process.env.OWNER_ID.trim())) {
+        throw new Error("OWNER_ID must be a valid Discord user ID.");
+    }
 }
 
 function findCommandFiles(directory) {
