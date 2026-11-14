@@ -93,6 +93,14 @@ function initializeSchema(db) {
             FOREIGN KEY (user_id) REFERENCES players(user_id) ON DELETE CASCADE
         );
 
+        CREATE TABLE IF NOT EXISTS player_potions (
+            user_id TEXT NOT NULL,
+            potion_id TEXT NOT NULL,
+            quantity INTEGER NOT NULL DEFAULT 0 CHECK (quantity >= 0),
+            PRIMARY KEY (user_id, potion_id),
+            FOREIGN KEY (user_id) REFERENCES players(user_id) ON DELETE CASCADE
+        );
+
         CREATE TABLE IF NOT EXISTS active_potions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
