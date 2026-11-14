@@ -1,0 +1,19 @@
+{
+  "name": "fortuna-rng",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A global Discord RNG and collection bot.",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.6.1"
+  }
+}
