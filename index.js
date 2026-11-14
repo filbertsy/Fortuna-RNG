@@ -13,7 +13,7 @@ const {
 
 const { getDatabase, closeDatabase } = require("./database/database");
 
-const REQUIRED_ENV = ["DISCORD_TOKEN", "CLIENT_ID"];
+const REQUIRED_ENV = ["DISCORD_TOKEN", "CLIENT_ID", "OWNER_ID"];
 
 function validateEnvironment() {
     const missing = REQUIRED_ENV.filter((key) => !process.env[key]?.trim());
