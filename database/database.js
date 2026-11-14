@@ -150,6 +150,12 @@ function initializeSchema(db) {
             PRIMARY KEY (guild_id, user_id)
         );
 
+        CREATE TABLE IF NOT EXISTS bot_admins (
+            user_id TEXT PRIMARY KEY,
+            added_by TEXT NOT NULL,
+            added_at INTEGER NOT NULL DEFAULT (unixepoch() * 1000)
+        );
+
         CREATE TABLE IF NOT EXISTS player_achievements (
             user_id TEXT NOT NULL,
             achievement_id TEXT NOT NULL,
