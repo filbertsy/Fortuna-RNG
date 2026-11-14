@@ -69,7 +69,7 @@ function selectRng(catalogue) {
         }
     }
 
-    return catalogue.find((entry) => entry.odds === 1n) ?? catalogue[0];
+    return catalogue[catalogue.length - 1];
 }
 
 function formatOdds(odds) {
