@@ -13,6 +13,8 @@ const PREFIXES = [
     "Forsaken", "Mirrored", "Harmonic", "Paradoxical", "Empyrean", "Transcendent", "Cosmic", "Universal", "Omniversal", "Fortuna's"
 ];
 
+const UNIQUE_PREFIXES = [...new Set(PREFIXES)];
+
 const NOUNS = [
     "Aegis", "Afterglow", "Anomaly", "Apocalypse", "Artifact", "Ascension", "Ashes", "Aurora", "Beacon", "Beginning",
     "Blessing", "Bloom", "Calamity", "Catalyst", "Cipher", "Comet", "Convergence", "Crescent", "Crown", "Dawn",
@@ -53,9 +55,9 @@ const generated = [];
 const TARGET_GENERATED = 996;
 
 for (let i = 0; i < TARGET_GENERATED; i += 1) {
-    const prefix = PREFIXES[i % PREFIXES.length];
-    const noun = NOUNS[Math.floor(i / PREFIXES.length) % NOUNS.length];
-    const cycle = Math.floor(i / (PREFIXES.length * NOUNS.length));
+    const prefix = UNIQUE_PREFIXES[i % UNIQUE_PREFIXES.length];
+    const noun = NOUNS[Math.floor(i / UNIQUE_PREFIXES.length) % NOUNS.length];
+    const cycle = Math.floor(i / (UNIQUE_PREFIXES.length * NOUNS.length));
     const name = cycle === 0 ? `${prefix} ${noun}` : `${prefix} ${noun} ${cycle + 1}`;
 
     // Spread regular discoveries across 2..999,999 without unsafe Number odds.
