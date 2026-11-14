@@ -27,7 +27,11 @@ module.exports = {
             return interaction.reply({ content: "That tool is not equipped.", flags: MessageFlags.Ephemeral });
         }
 
-        db.prepare("UPDATE player_tools SET equipped = 0 WHERE user_id = ? AND tool_id = ?").run(userId, toolId);
+        const updateLoadout = db.transaction(() => {
+            db.prepare("UPDATE player_tools SET equipped = 0 WHERE user_id = ? AND tool_id = ?").run(userId, toolId);
+            db.prepare("UPDATE players SET selected_guild_id = ? WHERE user_id = ?").run(interaction.guildId, userId);
+        });
+        updateLoadout();
         await interaction.reply({
             embeds: [baseEmbed("Tool unequipped", "Your loadout has been updated.")],
             flags: MessageFlags.Ephemeral
