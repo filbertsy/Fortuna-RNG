@@ -6,6 +6,7 @@ const {
 const crypto = require("node:crypto");
 
 const { getDatabase } = require("../../database/database");
+const { getLuck, SCALE } = require("../../utils/luck");
 const rngs = require("../../data/rngs");
 
 const GOLD = 0xD6B66C;
@@ -58,18 +59,20 @@ function normalizeCatalogue(catalogue) {
                 description: String(entry.description ?? "A discovered fortune.")
             };
         })
-        .sort((a, b) => a.odds < b.odds ? -1 : a.odds > b.odds ? 1 : 0);
+        .sort((a, b) => a.odds > b.odds ? -1 : a.odds < b.odds ? 1 : 0);
 }
 
-function selectRng(catalogue) {
-    // Test rare entries first. Each entry keeps its own one-in-X chance.
+function selectRng(catalogue, luckScale = SCALE) {
+    // Check the rarest discoveries first. Luck scales each independent chance.
     for (const entry of catalogue) {
-        if (randomBigInt(entry.odds) === 0n) {
+        const range = entry.odds * SCALE;
+        if (luckScale >= range || randomBigInt(range) < luckScale) {
             return entry;
         }
     }
 
-    return catalogue[0];
+    // The catalogue is sorted rarest-first, so the final entry is the common fallback.
+    return catalogue[catalogue.length - 1];
 }
 
 function formatOdds(odds) {
@@ -86,7 +89,8 @@ module.exports = {
 
         try {
             const catalogue = normalizeCatalogue(rngs);
-            const result = selectRng(catalogue);
+            const luck = getLuck(interaction.user.id);
+            const result = selectRng(catalogue, luck.scaled);
             const db = getDatabase();
             const userId = interaction.user.id;
             const timestamp = Date.now();
@@ -127,12 +131,37 @@ module.exports = {
                 .setDescription(result.description)
                 .addFields(
                     { name: "Rarity", value: result.rarity, inline: true },
-                    { name: "Odds", value: formatOdds(result.odds), inline: true }
+                    { name: "Odds", value: formatOdds(result.odds), inline: true },
+                    { name: "Luck", value: `${luck.multiplier.toFixed(2)}×`, inline: true }
                 )
                 .setFooter({ text: "Fortuna RNG • Does fortune favor you?" })
                 .setTimestamp(new Date(timestamp));
 
             await interaction.editReply({ embeds: [embed] });
+
+            if (interaction.guildId) {
+                const settings = db.prepare(
+                    "SELECT announce_channel_id, announce_threshold, ping_everyone FROM guild_settings WHERE guild_id = ?"
+                ).get(interaction.guildId);
+
+                if (settings?.announce_channel_id && result.odds >= BigInt(settings.announce_threshold || "10000")) {
+                    try {
+                        const channel = await interaction.client.channels.fetch(settings.announce_channel_id);
+                        if (channel?.isTextBased() && channel.messages) {
+                            const content = settings.ping_everyone
+                                ? "@everyone A rare fortune has appeared!"
+                                : "A rare fortune has appeared!";
+                            await channel.send({
+                                content,
+                                embeds: [embed],
+                                allowedMentions: { parse: settings.ping_everyone ? ["everyone"] : [] }
+                            });
+                        }
+                    } catch (announcementError) {
+                        console.error("[Fortuna RNG] Rare announcement failed:", announcementError);
+                    }
+                }
+            }
         } catch (error) {
             console.error("[Fortuna RNG] /roll failed:", error);
 
