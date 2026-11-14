@@ -69,7 +69,7 @@ function selectRng(catalogue) {
         }
     }
 
-    return catalogue[catalogue.length - 1];
+    return catalogue[0];
 }
 
 function formatOdds(odds) {
