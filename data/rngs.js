@@ -59,7 +59,7 @@ for (let i = 0; i < TARGET_GENERATED; i += 1) {
     const name = cycle === 0 ? `${prefix} ${noun}` : `${prefix} ${noun} ${cycle + 1}`;
 
     // Spread regular discoveries across 2..999,999 without unsafe Number odds.
-    const odds = 2 + Math.floor((i * 999997) / (TARGET_GENERATED - 1));
+    const odds = Math.max(2, Math.round(2 * Math.pow(999999 / 2, i / (TARGET_GENERATED - 1))));
     const tier = rarityForOdds(odds);
 
     generated.push({
