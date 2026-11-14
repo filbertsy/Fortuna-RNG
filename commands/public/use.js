@@ -32,11 +32,14 @@ module.exports = {
 
                 db.prepare("UPDATE player_potions SET quantity = quantity - 1 WHERE user_id = ? AND potion_id = ?").run(userId, potionId);
                 db.prepare("DELETE FROM player_potions WHERE user_id = ? AND potion_id = ? AND quantity <= 0").run(userId, potionId);
+                const selectedGuild = db.prepare(
+                    "SELECT selected_guild_id FROM players WHERE user_id = ?"
+                ).get(userId)?.selected_guild_id ?? null;
+
                 db.prepare(`
                     INSERT INTO active_potions (user_id, potion_id, source_guild_id, expires_at)
                     VALUES (?, ?, ?, ?)
-                `).run(userId, potionId, interaction.guildId, now + potion.durationMs);
-                db.prepare("UPDATE players SET selected_guild_id = ? WHERE user_id = ?").run(interaction.guildId, userId);
+                `).run(userId, potionId, selectedGuild, now + potion.durationMs);
             });
             activate();
 
