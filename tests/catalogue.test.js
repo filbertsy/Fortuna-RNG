@@ -8,6 +8,7 @@ test("RNG catalogue contains 1,000 valid unique entries", () => {
     assert.equal(rngs.length, 1000);
 
     const ids = new Set();
+    const names = new Set();
     for (const entry of rngs) {
         assert.equal(typeof entry.id, "string");
         assert.ok(entry.id.length > 0);
@@ -16,6 +17,8 @@ test("RNG catalogue contains 1,000 valid unique entries", () => {
 
         assert.equal(typeof entry.name, "string");
         assert.ok(entry.name.length > 0);
+        assert.ok(!names.has(entry.name), `Duplicate RNG name: ${entry.name}`);
+        names.add(entry.name);
         assert.ok(BigInt(entry.odds) >= 1n);
         assert.equal(typeof entry.rarity, "string");
         assert.equal(typeof entry.color, "number");
