@@ -1,40 +1,26 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const { getDatabase } = require("../../database/database");
-const { ensurePlayer, baseEmbed } = require("../../utils/game");
-const { TOOLS } = require("../../data/shop");
+const { baseEmbed } = require("../../utils/game");
+const { ALL_ITEMS } = require("../../data/shop");
 
 module.exports = {
-    data: new SlashCommandBuilder()
-        .setName("unequip")
-        .setDescription("Unequip one of your permanent luck tools.")
-        .addStringOption((option) => {
-            option.setName("tool").setDescription("Tool ID").setRequired(true);
-            for (const tool of TOOLS) option.addChoices({ name: tool.name, value: tool.id });
-            return option;
-        }),
-
+    data: new SlashCommandBuilder().setName("unequip").setDescription("Remove one of your equipped tools.")
+        .addStringOption((option) => option.setName("tool").setDescription("Choose an equipped tool").setRequired(true).setAutocomplete(true)),
+    async autocomplete(interaction) {
+        const q = interaction.options.getFocused().trim().toLowerCase();
+        const rows = getDatabase().prepare("SELECT tool_id FROM player_tools WHERE user_id = ? AND equipped = 1").all(interaction.user.id);
+        const equipped = new Set(rows.map((row) => row.tool_id));
+        await interaction.respond(ALL_ITEMS.filter((item) => item.category === "tool" && equipped.has(item.id) &&
+            (item.name + " " + item.id).toLowerCase().includes(q)).slice(0, 25)
+            .map((item) => ({ name: item.name + " [" + item.rarity + "]", value: item.id })));
+    },
     async execute(interaction) {
-        const toolId = interaction.options.getString("tool", true);
-        const db = getDatabase();
-        const userId = interaction.user.id;
-        ensurePlayer(userId);
-
-        const owned = db.prepare("SELECT equipped FROM player_tools WHERE user_id = ? AND tool_id = ?").get(userId, toolId);
-        if (!owned) {
-            return interaction.reply({ content: "You do not own that tool.", flags: MessageFlags.Ephemeral });
-        }
-        if (!owned.equipped) {
-            return interaction.reply({ content: "That tool is not equipped.", flags: MessageFlags.Ephemeral });
-        }
-
-        const updateLoadout = db.transaction(() => {
-            db.prepare("UPDATE player_tools SET equipped = 0 WHERE user_id = ? AND tool_id = ?").run(userId, toolId);
-            db.prepare("UPDATE players SET selected_guild_id = ? WHERE user_id = ?").run(interaction.guildId, userId);
-        });
-        updateLoadout();
-        await interaction.reply({
-            embeds: [baseEmbed("Tool unequipped", "Your loadout has been updated.")],
-            flags: MessageFlags.Ephemeral
-        });
+        const id = interaction.options.getString("tool", true);
+        const item = ALL_ITEMS.find((entry) => entry.id === id && entry.category === "tool");
+        if (!item) return interaction.reply({ content: "That is not a valid tool.", flags: MessageFlags.Ephemeral });
+        const result = getDatabase().prepare("UPDATE player_tools SET equipped = 0 WHERE user_id = ? AND tool_id = ? AND equipped = 1")
+            .run(interaction.user.id, id);
+        if (!result.changes) return interaction.reply({ content: "That tool is not currently equipped.", flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [baseEmbed("Tool unequipped", "**" + item.name + "** is no longer active.")], flags: MessageFlags.Ephemeral });
     }
 };
