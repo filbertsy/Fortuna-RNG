@@ -84,6 +84,35 @@ function createClient() {
         }
     });
 
+    client.on("shardReady", (shardId) => {
+        console.log("[Fortuna RNG] Discord Gateway ready (shard " + shardId + ").");
+    });
+    client.on("shardDisconnect", (event, shardId) => {
+        console.warn(
+            "[Fortuna RNG] Discord Gateway disconnected (shard " + shardId +
+            ", code " + event.code +
+            ", clean " + event.wasClean +
+            "): " + (event.reason || "no reason provided")
+        );
+    });
+    client.on("shardReconnecting", (shardId) => {
+        console.warn("[Fortuna RNG] Discord Gateway reconnecting (shard " + shardId + ").");
+    });
+    client.on("shardResume", (shardId, replayedEvents) => {
+        console.log(
+            "[Fortuna RNG] Discord Gateway resumed (shard " + shardId +
+            ", replayed " + replayedEvents + " event(s))."
+        );
+    });
+    client.on("shardError", (error, shardId) => {
+        console.error("[Fortuna RNG] Discord Gateway error (shard " + shardId + "):", error);
+    });
+    client.on("invalidated", () => {
+        console.error("[Fortuna RNG] Discord session invalidated. A restart may be required.");
+    });
+    client.on("warn", (warning) => {
+        console.warn("[Fortuna RNG] Discord warning:", warning);
+    });
     client.on(Events.Error, (error) => console.error("[Fortuna RNG] Discord client error:", error));
     return client;
 }
