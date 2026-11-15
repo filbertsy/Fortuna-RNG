@@ -10,7 +10,11 @@ module.exports = {
         .addIntegerOption((o) => o.setName("quantity").setDescription("Potion quantity").setMinValue(1).setMaxValue(100)),
     async autocomplete(interaction) {
         const q = interaction.options.getFocused().trim().toLowerCase();
-        await interaction.respond(ALL_ITEMS.filter((i) => (i.name + " " + i.id).toLowerCase().includes(q)).slice(0, 25)
+        const available = interaction.inGuild()
+            ? new Set([...ALL_ITEMS.filter((i) => i.rarity === "Legendary").map((i) => i.id),
+                ...ensureGuildShop(interaction.guildId).items.map((i) => i.id)])
+            : new Set(ALL_ITEMS.filter((i) => i.rarity === "Legendary").map((i) => i.id));
+        await interaction.respond(ALL_ITEMS.filter((i) => available.has(i.id) && (i.name + " " + i.id).toLowerCase().includes(q)).slice(0, 25)
             .map((i) => ({ name: i.name + " · " + i.rarity + " · " + formatNumber(i.price), value: i.id })));
     },
     async execute(interaction) {
