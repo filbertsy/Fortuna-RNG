@@ -1,6 +1,9 @@
 const {
     SlashCommandBuilder,
     EmbedBuilder,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
     MessageFlags
 } = require("discord.js");
 const crypto = require("node:crypto");
@@ -11,6 +14,8 @@ const rngs = require("../../data/rngs");
 
 const GOLD = 0xD6B66C;
 const MAX_RANDOM_BYTES = 64;
+const ROLL_BUTTON_ID = "fortuna:roll_again";
+const BUTTON_LIFETIME = 15 * 60 * 1000;
 
 function randomBigInt(maxExclusive) {
     if (typeof maxExclusive !== "bigint" || maxExclusive <= 0n) {
@@ -42,11 +47,7 @@ function normalizeCatalogue(catalogue) {
         .map((entry) => {
             const odds = BigInt(entry.odds);
 
-            if (
-                !entry.id ||
-                !entry.name ||
-                odds < 1n
-            ) {
+            if (!entry.id || !entry.name || odds < 1n) {
                 throw new Error(`Invalid RNG catalogue entry: ${entry?.id ?? "unknown"}`);
             }
 
@@ -63,7 +64,6 @@ function normalizeCatalogue(catalogue) {
 }
 
 function selectRng(catalogue, luckScale = SCALE) {
-    // Check the rarest discoveries first. Luck scales each independent chance.
     for (const entry of catalogue) {
         const range = entry.odds * SCALE;
         if (luckScale >= range || randomBigInt(range) < luckScale) {
@@ -71,12 +71,115 @@ function selectRng(catalogue, luckScale = SCALE) {
         }
     }
 
-    // The catalogue is sorted rarest-first, so the final entry is the common fallback.
     return catalogue[catalogue.length - 1];
 }
 
 function formatOdds(odds) {
     return `1 in ${odds.toLocaleString("en-US")}`;
+}
+
+function createRollButton() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId(ROLL_BUTTON_ID)
+            .setLabel("Roll Again")
+            .setEmoji("🎲")
+            .setStyle(ButtonStyle.Primary)
+    );
+}
+
+async function performRoll(interaction) {
+    const catalogue = normalizeCatalogue(rngs);
+    const luck = getLuck(interaction.user.id);
+    const result = selectRng(catalogue, luck.scaled);
+    const db = getDatabase();
+    const userId = interaction.user.id;
+    const timestamp = Date.now();
+
+    const saveRoll = db.transaction(() => {
+        db.prepare(`
+            INSERT INTO players (user_id, total_rolls)
+            VALUES (?, 1)
+            ON CONFLICT(user_id) DO UPDATE SET
+                total_rolls = total_rolls + 1
+        `).run(userId);
+
+        const alreadyOwned = db.prepare(
+            "SELECT 1 FROM rng_inventory WHERE user_id = ? AND rng_id = ?"
+        ).get(userId, result.id);
+        const uniqueCount = db.prepare(
+            "SELECT COUNT(*) AS count FROM rng_inventory WHERE user_id = ?"
+        ).get(userId).count;
+        const stored = Boolean(alreadyOwned) || uniqueCount < 300;
+
+        if (stored) {
+            db.prepare(`
+                INSERT INTO rng_inventory (user_id, rng_id, quantity)
+                VALUES (?, ?, 1)
+                ON CONFLICT(user_id, rng_id) DO UPDATE SET
+                    quantity = quantity + 1
+            `).run(userId, result.id);
+        }
+
+        db.prepare(`
+            INSERT INTO roll_history
+                (user_id, rng_id, result_name, odds, rolled_at)
+            VALUES (?, ?, ?, ?, ?)
+        `).run(userId, result.id, result.name, result.odds.toString(), timestamp);
+
+        return stored;
+    });
+
+    const resultStored = saveRoll();
+
+    const embed = new EmbedBuilder()
+        .setColor(result.color)
+        .setAuthor({ name: "FORTUNA RNG  •  YOUR FORTUNE" })
+        .setTitle(`✦  ${result.name}`)
+        .setDescription(`*${result.description}*\n\n> ${result.rarity} discovery`)
+        .addFields(
+            { name: "🎯  ODDS", value: `\`${formatOdds(result.odds)}\``, inline: true },
+            { name: "🍀  LUCK", value: `\`${luck.multiplier.toFixed(2)}×\``, inline: true },
+            { name: "✧  RARITY", value: `\`${result.rarity}\``, inline: true }
+        )
+        .setFooter({ text: "Fortuna RNG  •  Every roll writes your story" })
+        .setTimestamp(new Date(timestamp));
+
+    if (!resultStored) {
+        embed.addFields({
+            name: "📦  COLLECTION FULL",
+            value: "Your collection has reached its 300 unique-RNG limit. This result was recorded in your roll history, but not added to your collection."
+        });
+    }
+
+    await interaction.editReply({
+        content: null,
+        embeds: [embed],
+        components: [createRollButton()]
+    });
+
+    if (interaction.guildId) {
+        const settings = db.prepare(
+            "SELECT announce_channel_id, announce_threshold, ping_everyone FROM guild_settings WHERE guild_id = ?"
+        ).get(interaction.guildId);
+
+        if (settings?.announce_channel_id && result.odds >= BigInt(settings.announce_threshold || "10000")) {
+            try {
+                const channel = await interaction.client.channels.fetch(settings.announce_channel_id);
+                if (channel?.isTextBased() && channel.messages) {
+                    await channel.send({
+                        content: settings.ping_everyone
+                            ? "@everyone A rare fortune has appeared!"
+                            : "A rare fortune has appeared!",
+                        embeds: [embed],
+                        allowedMentions: { parse: settings.ping_everyone ? ["everyone"] : [] }
+                    });
+                }
+            } catch (announcementError) {
+                console.error("[Fortuna RNG] Rare announcement failed:", announcementError);
+            }
+        }
+    }
 }
 
 module.exports = {
@@ -88,105 +191,41 @@ module.exports = {
         await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
         try {
-            const catalogue = normalizeCatalogue(rngs);
-            const luck = getLuck(interaction.user.id);
-            const result = selectRng(catalogue, luck.scaled);
-            const db = getDatabase();
-            const userId = interaction.user.id;
-            const timestamp = Date.now();
+            await performRoll(interaction);
 
-            const saveRoll = db.transaction(() => {
-                db.prepare(`
-                    INSERT INTO players (user_id, total_rolls)
-                    VALUES (?, 1)
-                    ON CONFLICT(user_id) DO UPDATE SET
-                        total_rolls = total_rolls + 1
-                `).run(userId);
-
-                const alreadyOwned = db.prepare(
-                    "SELECT 1 FROM rng_inventory WHERE user_id = ? AND rng_id = ?"
-                ).get(userId, result.id);
-                const uniqueCount = db.prepare(
-                    "SELECT COUNT(*) AS count FROM rng_inventory WHERE user_id = ?"
-                ).get(userId).count;
-                const stored = Boolean(alreadyOwned) || uniqueCount < 300;
-
-                if (stored) {
-                    db.prepare(`
-                        INSERT INTO rng_inventory (user_id, rng_id, quantity)
-                        VALUES (?, ?, 1)
-                        ON CONFLICT(user_id, rng_id) DO UPDATE SET
-                            quantity = quantity + 1
-                    `).run(userId, result.id);
-                }
-
-                db.prepare(`
-                    INSERT INTO roll_history
-                        (user_id, rng_id, result_name, odds, rolled_at)
-                    VALUES (?, ?, ?, ?, ?)
-                `).run(
-                    userId,
-                    result.id,
-                    result.name,
-                    result.odds.toString(),
-                    timestamp
-                );
-
-                return stored;
+            const reply = await interaction.fetchReply();
+            const collector = reply.createMessageComponentCollector({
+                time: BUTTON_LIFETIME,
+                filter: (buttonInteraction) =>
+                    buttonInteraction.customId === ROLL_BUTTON_ID &&
+                    buttonInteraction.user.id === interaction.user.id
             });
 
-            const resultStored = saveRoll();
+            collector.on("collect", async (buttonInteraction) => {
+                await buttonInteraction.deferUpdate();
 
-            const embed = new EmbedBuilder()
-                .setColor(result.color)
-                .setTitle(result.name)
-                .setDescription(result.description)
-                .addFields(
-                    { name: "Rarity", value: result.rarity, inline: true },
-                    { name: "Odds", value: formatOdds(result.odds), inline: true },
-                    { name: "Luck", value: `${luck.multiplier.toFixed(2)}×`, inline: true }
-                )
-                .setFooter({ text: "Fortuna RNG • Does fortune favor you?" })
-                .setTimestamp(new Date(timestamp));
-
-            if (!resultStored) {
-                embed.addFields({
-                    name: "Collection full",
-                    value: "Your collection is at its 300 unique-RNG limit. This result was recorded in history but not added to your collection."
-                });
-            }
-
-            await interaction.editReply({ embeds: [embed] });
-
-            if (interaction.guildId) {
-                const settings = db.prepare(
-                    "SELECT announce_channel_id, announce_threshold, ping_everyone FROM guild_settings WHERE guild_id = ?"
-                ).get(interaction.guildId);
-
-                if (settings?.announce_channel_id && result.odds >= BigInt(settings.announce_threshold || "10000")) {
-                    try {
-                        const channel = await interaction.client.channels.fetch(settings.announce_channel_id);
-                        if (channel?.isTextBased() && channel.messages) {
-                            const content = settings.ping_everyone
-                                ? "@everyone A rare fortune has appeared!"
-                                : "A rare fortune has appeared!";
-                            await channel.send({
-                                content,
-                                embeds: [embed],
-                                allowedMentions: { parse: settings.ping_everyone ? ["everyone"] : [] }
-                            });
-                        }
-                    } catch (announcementError) {
-                        console.error("[Fortuna RNG] Rare announcement failed:", announcementError);
-                    }
+                try {
+                    await performRoll(interaction);
+                } catch (error) {
+                    console.error("[Fortuna RNG] Roll-again failed:", error);
+                    await interaction.editReply({
+                        content: "Your next roll could not be completed. Please try again.",
+                        embeds: [],
+                        components: [createRollButton()]
+                    }).catch(() => {});
                 }
-            }
+            });
+
+            collector.on("end", async () => {
+                await interaction.editReply({ components: [] }).catch(() => {});
+            });
         } catch (error) {
             console.error("[Fortuna RNG] /roll failed:", error);
 
             await interaction.editReply({
                 content: "Your roll could not be completed. No roll was charged; try again shortly.",
-                embeds: []
+                embeds: [],
+                components: []
             });
         }
     }
