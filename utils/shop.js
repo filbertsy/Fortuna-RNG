@@ -29,7 +29,7 @@ function generateRotation() {
         if (!candidates.length) {
             const available = RARITIES.filter((rarity) =>
                 rarity.key !== "legendary" &&
-                ALL_ITEMS.some((item) => item.id.split("_")[1] === rarity.key && !used.has(item.id))
+                ALL_ITEMS.some((item) => RARITIES.find((entry) => entry.name === item.rarity)?.key === rarity.key && !used.has(item.id))
             );
             if (!available.length) break;
             rarityKey = available[crypto.randomInt(available.length)].key;
