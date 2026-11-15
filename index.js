@@ -52,8 +52,8 @@ function findCommandFiles(directory) {
 }
 
 function loadCommands(client) {
-    const commandsDirectory = path.join(__dirname, "commands");
-    const commandFiles = findCommandFiles(commandsDirectory);
+    const rollCommandPath = path.join(__dirname, "commands", "public", "roll.js");
+    const commandFiles = fs.existsSync(rollCommandPath) ? [rollCommandPath] : [];
     const payload = [];
 
     for (const filePath of commandFiles) {
