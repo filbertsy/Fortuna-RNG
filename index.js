@@ -123,8 +123,15 @@ async function start() {
     console.log("[Fortuna RNG] Database initialized.");
     const client = createClient();
     const commands = loadCommands(client);
-    await registerGlobalCommands(process.env.DISCORD_TOKEN, process.env.CLIENT_ID.trim(), commands);
+
+    // Connect the Gateway first so a slow Discord command-registration request
+    // cannot prevent the bot from coming online.
     await client.login(process.env.DISCORD_TOKEN);
+
+    registerGlobalCommands(process.env.DISCORD_TOKEN, process.env.CLIENT_ID.trim(), commands)
+        .catch((error) => {
+            console.error("[Fortuna RNG] Global command registration failed:", error);
+        });
 
     let shuttingDown = false;
     async function shutdown(signal) {
