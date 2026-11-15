@@ -17,8 +17,6 @@ module.exports = {
         try {
             db.transaction(() => {
                 db.prepare("DELETE FROM active_potions WHERE expires_at <= ?").run(now);
-                const active = db.prepare("SELECT COUNT(*) AS count FROM active_potions WHERE user_id = ?").get(interaction.user.id).count;
-                if (active >= 5) throw new Error("You can have at most five active potion stacks.");
                 const owned = db.prepare("SELECT quantity FROM player_potions WHERE user_id = ? AND potion_id = ?").get(interaction.user.id, id);
                 if (!owned || owned.quantity < 1) throw new Error("You do not have that potion.");
                 db.prepare("UPDATE player_potions SET quantity = quantity - 1 WHERE user_id = ? AND potion_id = ?").run(interaction.user.id, id);
