@@ -124,9 +124,26 @@ async function start() {
     const client = createClient();
     const commands = loadCommands(client);
 
-    // Connect the Gateway first so a slow Discord command-registration request
-    // cannot prevent the bot from coming online.
-    await client.login(process.env.DISCORD_TOKEN);
+    // Connect the Gateway first so command registration cannot delay startup.
+    console.log("[Fortuna RNG] Connecting to Discord Gateway...");
+    const loginStartedAt = Date.now();
+    const loginWarning = setTimeout(() => {
+        console.warn(
+            "[Fortuna RNG] Still waiting for Discord Gateway after " +
+            Math.round((Date.now() - loginStartedAt) / 1000) +
+            " seconds. Check outbound network access to Discord."
+        );
+    }, 15000);
+    loginWarning.unref?.();
+
+    try {
+        await client.login(process.env.DISCORD_TOKEN);
+        clearTimeout(loginWarning);
+        console.log("[Fortuna RNG] Discord login handshake completed.");
+    } catch (error) {
+        clearTimeout(loginWarning);
+        throw error;
+    }
 
     registerGlobalCommands(process.env.DISCORD_TOKEN, process.env.CLIENT_ID.trim(), commands)
         .catch((error) => {
