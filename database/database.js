@@ -1,6 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const Database = require("better-sqlite3");
+const { DatabaseSync } = require("node:sqlite");
 
 let database;
 
@@ -14,11 +14,11 @@ function getDatabase() {
 
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
-    database = new Database(databasePath);
-    database.pragma("journal_mode = WAL");
-    database.pragma("foreign_keys = ON");
-    database.pragma("busy_timeout = 5000");
-    database.pragma("synchronous = NORMAL");
+    database = new DatabaseSync(databasePath);
+    database.exec("PRAGMA journal_mode = WAL");
+    database.exec("PRAGMA foreign_keys = ON");
+    database.exec("PRAGMA busy_timeout = 5000");
+    database.exec("PRAGMA synchronous = NORMAL");
 
     initializeSchema(database);
     return database;
