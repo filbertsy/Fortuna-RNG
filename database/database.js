@@ -166,6 +166,15 @@ function initializeSchema(db) {
             PRIMARY KEY (guild_id, item_id, category)
         );
 
+        CREATE TABLE IF NOT EXISTS guild_shop_rotations (
+            guild_id TEXT PRIMARY KEY,
+            refreshed_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_guild_shop_rotation_expiry
+            ON guild_shop_rotations(expires_at);
+
         CREATE TABLE IF NOT EXISTS server_momentum (
             guild_id TEXT NOT NULL,
             user_id TEXT NOT NULL,
