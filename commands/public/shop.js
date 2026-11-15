@@ -28,6 +28,7 @@ function makeEmbed(guild, items, category, rarity, page, expiresAt) {
         .setTitle("✦ Fortuna's Shop").setDescription(lines.join("\n\n") || "No items in this category.")
         .addFields(
             { name: "CATEGORY", value: "\u0060" + category.toUpperCase() + "\u0060", inline: true },
+            { name: "RARITY", value: "\u0060" + (rarity === "all" ? "ALL" : (RARITIES.find((entry) => entry.key === rarity)?.name || "ALL")) + "\u0060", inline: true },
             { name: "PAGE", value: "\u0060" + (page + 1) + " / " + pages + "\u0060", inline: true },
             { name: "NEXT ROTATION", value: "\u0060" + Math.floor(left / 3600000) + "h " + Math.floor((left % 3600000) / 60000) + "m\u0060", inline: true }
         ).setFooter({ text: guild.name + " • /buy item:<id> • Legendary is always available" });
