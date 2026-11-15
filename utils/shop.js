@@ -24,7 +24,7 @@ function generateRotation() {
 
     for (let slot = 0; slot < STOCK_SIZE; slot += 1) {
         let rarityKey = chooseRarity();
-        let candidates = ALL_ITEMS.filter((item) => item.id.split("_")[1] === rarityKey && !used.has(item.id));
+        let candidates = ALL_ITEMS.filter((item) => RARITIES.find((rarity) => rarity.name === item.rarity)?.key === rarityKey && !used.has(item.id));
 
         if (!candidates.length) {
             const available = RARITIES.filter((rarity) =>
@@ -33,7 +33,7 @@ function generateRotation() {
             );
             if (!available.length) break;
             rarityKey = available[crypto.randomInt(available.length)].key;
-            candidates = ALL_ITEMS.filter((item) => item.id.split("_")[1] === rarityKey && !used.has(item.id));
+            candidates = ALL_ITEMS.filter((item) => RARITIES.find((rarity) => rarity.name === item.rarity)?.key === rarityKey && !used.has(item.id));
         }
 
         const item = candidates[crypto.randomInt(candidates.length)];
