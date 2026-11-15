@@ -65,7 +65,7 @@ module.exports = {
         let items = getItems(category, rarity, rotation.items);
         let page = 0;
         let pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
-        await interaction.reply({ embeds: [makeEmbed(interaction.guild, items, category, page, rotation.expiresAt)], components: makeButtons(page, pages, category, rarity), flags: MessageFlags.Ephemeral });
+        await interaction.reply({ embeds: [makeEmbed(interaction.guild, items, category, rarity, page, rotation.expiresAt)], components: makeButtons(page, pages, category, rarity), flags: MessageFlags.Ephemeral });
         const reply = await interaction.fetchReply();
         const collector = reply.createMessageComponentCollector({ time: 900000, filter: (b) => b.customId.startsWith(PREFIX) && b.user.id === interaction.user.id });
         collector.on("collect", async (button) => {
