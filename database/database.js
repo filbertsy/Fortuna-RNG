@@ -15,6 +15,30 @@ function getDatabase() {
     fs.mkdirSync(path.dirname(databasePath), { recursive: true });
 
     database = new DatabaseSync(databasePath);
+
+    // Match the synchronous transaction wrapper used by the command layer.
+    database.transaction = (callback) => {
+        if (typeof callback !== "function") {
+            throw new TypeError("Transaction callback must be a function.");
+        }
+
+        return (...args) => {
+            database.exec("BEGIN IMMEDIATE");
+            try {
+                const result = callback(...args);
+                database.exec("COMMIT");
+                return result;
+            } catch (error) {
+                try {
+                    database.exec("ROLLBACK");
+                } catch (rollbackError) {
+                    error.rollbackError = rollbackError;
+                }
+                throw error;
+            }
+        };
+    };
+
     database.exec("PRAGMA journal_mode = WAL");
     database.exec("PRAGMA foreign_keys = ON");
     database.exec("PRAGMA busy_timeout = 5000");
